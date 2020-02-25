@@ -26,16 +26,17 @@ class RabbitMqMessageBus(MessageBus):
     def on(self, topic_name, client_group, callback):
         self._subscribers[topic_name] = (client_group, callback)
 
-    def _signal_handler(self, sig, frame):
-        print('You pressed Ctrl+C!')
-        sys.exit(0)
-
     def start_consuming(self):
         signal.signal(signal.SIGINT, self._signal_handler)
 
         for topic_name, (client_group, callback) in self._subscribers.items():
             conn_params = pika.ConnectionParameters('localhost')
             RabbitMqConsumer.consume(conn_params, topic_name, client_group, callback)
+
+    def _signal_handler(self, sig, frame):
+        print('You pressed Ctrl+C!')
+        # TODO gracefully shutdown consumer here
+        sys.exit(0)
 
 
 class RabbitMqConsumerConfirm(ConsumerConfirm):
@@ -77,7 +78,7 @@ class RabbitMqConsumer:
                               auto_ack=False)
 
         # start consuming (blocking)
-        print("Waiting incoming message. To exit press CTRL+C")
+        print("Waiting incoming message. To exit press Ctrl+C")
         channel.start_consuming()
 
     @staticmethod

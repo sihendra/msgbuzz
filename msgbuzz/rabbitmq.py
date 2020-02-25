@@ -32,8 +32,22 @@ class RabbitMqMessageBus(MessageBus):
         self._subscribers[topic_name] = (client_group, callback)
 
     def start_consuming(self):
+        consumer_count = len(self._subscribers.items())
+        if consumer_count == 0:
+            return
+
         signal.signal(signal.SIGINT, self._signal_handler)
 
+        # one consumer just use current process
+        if consumer_count == 1:
+            topic_name = next(iter(self._subscribers))
+            client_group, callback = self._subscribers[topic_name]
+            consumer = RabbitMqConsumer(self._conn_params, topic_name, client_group, callback)
+            self._consumers.append(consumer)
+            consumer.run()
+            return
+
+        # multiple consumers use child process
         for topic_name, (client_group, callback) in self._subscribers.items():
             consumer = RabbitMqConsumer(self._conn_params, topic_name, client_group, callback)
             self._consumers.append(consumer)

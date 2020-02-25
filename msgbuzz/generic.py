@@ -29,4 +29,7 @@ class MessageBus:
     def on(self, topic_name, client_group, callback):
         pass
 
+    @abstractmethod
+    def start_consuming(self):
+        pass
 

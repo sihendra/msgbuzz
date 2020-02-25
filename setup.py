@@ -1,14 +1,15 @@
-from setuptools import setup
+import setuptools
 
-setup(
+setuptools.setup(
     name='msgbus',
-    version="0.1.0",
+    version="0.0.1",
     author='Hendra Setiawan',
     author_email='sihendra@gmail.com',
     description='Generic message bus abstraction. Supported implementation: RabbitMQ through Pika',
-    url='https://github.com/sihendra/msgbus',
-    packages=['msgbus'],
-    install_requires=open('requirements.txt', 'r').readlines(),
-    include_package_data=True,
     long_description=open('README.md').read(),
+    long_description_content_type="text/markdown",
+    url='https://github.com/sihendra/msgbus',
+    packages=setuptools.find_packages(),
+    install_requires=open('requirements.txt', 'r').readlines(),
+    python_requires='>=3.6'
 )

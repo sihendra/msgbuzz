@@ -1,4 +1,5 @@
 import json
+import logging
 import multiprocessing
 import os
 import signal
@@ -8,6 +9,8 @@ from pika.channel import Channel
 from pika.spec import Basic, BasicProperties
 
 from msgbuzz import MessageBus, ConsumerConfirm, Message
+
+_logger = logging.getLogger(__name__)
 
 
 class RabbitMqMessageBus(MessageBus):
@@ -40,11 +43,11 @@ class RabbitMqMessageBus(MessageBus):
             consumer.join()
 
     def _signal_handler(self, sig, frame):
-        print(f"You pressed Ctrl+C!")
+        _logger.info(f"You pressed Ctrl+C!")
         for consumer in self._consumers:
             consumer.stop()
 
-        print("Stopping consumers")
+        _logger.info("Stopping consumers")
 
         # sys.exit(0)
 
@@ -81,7 +84,7 @@ class RabbitMqConsumer(multiprocessing.Process):
         channel.queue_bind(exchange=self._topic_name, queue=queue_name)
 
         # start consuming (blocking)
-        print("Waiting incoming message. To exit press Ctrl+C")
+        _logger.info(f"Waiting incoming message for topic: {self._topic_name}. To exit press Ctrl+C")
         for message in channel.consume(queue=queue_name, auto_ack=False, inactivity_timeout=1):
             if self._is_interrupted:
                 break
@@ -96,7 +99,7 @@ class RabbitMqConsumer(multiprocessing.Process):
 
             self._callback(channel, method, properties, body)
 
-        print(f"[Process-{os.getpid()}] Consumer stopped")
+        _logger.info(f"[Process-{os.getpid()}] Consumer stopped")
 
 
 class RabbitMqConsumerConfirm(ConsumerConfirm):
@@ -113,6 +116,13 @@ class RabbitMqConsumerConfirm(ConsumerConfirm):
 
 
 def _callback_wrapper(callback):
+    """
+    Wrapper for callback. since nested function cannot be pickled, we need some top level function to wrap it
+
+    :param callback:
+    :return: function
+    """
+
     def fn(ch, method, properties, body):
         msg_dict = json.loads(body)
         msg = Message(msg_dict.get("headers"), msg_dict.get("body"))

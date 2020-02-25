@@ -6,7 +6,7 @@ import pika
 from pika.channel import Channel
 from pika.spec import Basic, BasicProperties
 
-from msgbus import MessageBus, ConsumerConfirm, Message
+from msgbuzz import MessageBus, ConsumerConfirm, Message
 
 
 class RabbitMqMessageBus(MessageBus):

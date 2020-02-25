@@ -1,8 +1,8 @@
 import os
 import time
 
-from msgbus import ConsumerConfirm, Message
-from msgbus.rabbitmq import RabbitMqMessageBus
+from msgbuzz import ConsumerConfirm, Message
+from msgbuzz.rabbitmq import RabbitMqMessageBus
 
 
 def print_message(op: ConsumerConfirm, message: Message):

@@ -1,4 +1,4 @@
-from msgbus.rabbitmq import RabbitMqMessageBus
+from msgbuzz.rabbitmq import RabbitMqMessageBus
 
 if __name__ == '__main__':
     msg_bus = RabbitMqMessageBus()

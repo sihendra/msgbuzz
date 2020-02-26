@@ -11,6 +11,16 @@ class ConsumerConfirm:
     def nack(self):
         pass
 
+    @abstractmethod
+    def retry(self, delay, max_retries):
+        """
+        Retry the message
+        :param delay: delay in milliseconds
+        :param max_retries: max retry attempt
+        :return:
+        """
+        pass
+
 
 class Message(object):
 
@@ -32,4 +42,3 @@ class MessageBus:
     @abstractmethod
     def start_consuming(self):
         pass
-

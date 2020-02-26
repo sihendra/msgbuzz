@@ -11,6 +11,10 @@ class ConsumerConfirm:
     def nack(self):
         pass
 
+    @abstractmethod
+    def retry(self):
+        pass
+
 
 class Message(object):
 
@@ -32,4 +36,3 @@ class MessageBus:
     @abstractmethod
     def start_consuming(self):
         pass
-

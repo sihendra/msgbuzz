@@ -1,7 +1,6 @@
 import json
 import logging
 import multiprocessing
-import os
 import signal
 
 import pika
@@ -172,10 +171,6 @@ class RabbitMqConsumerConfirm(ConsumerConfirm):
         :param properties:
         :param body:
         """
-        try:
-            self.default_delay = str(int(os.getenv("MSGBUZZ_DEFAULT_DELAY")))
-        except TypeError:
-            self.default_delay = "15000"  # 15 secs
         self.names_gen = names_gen
 
         self._channel = channel
@@ -189,17 +184,16 @@ class RabbitMqConsumerConfirm(ConsumerConfirm):
     def nack(self):
         self._channel.basic_nack(self._delivery.delivery_tag)
 
-    def retry(self, delay=None, max_retries=3):
-        if not delay:
-            delay = self.default_delay
-        self._properties.expiration = delay
+    def retry(self, delay=60000, max_retries=3):
+        # RabbitMq expiration should be str
+        self._properties.expiration = str(delay)
 
         if self._properties.headers is None:
             self._properties.headers = {}
         self._properties.headers['x-max-retries'] = max_retries
 
         q_names = self.names_gen
-        _logger.info(f"About to retry to props: {self._properties} body:{self._body}")
+        _logger.info(f"About to retry body:{self._body} props: {self._properties}")
         self._channel.basic_publish("", q_names.retry_queue_name(), self._body, properties=self._properties)
 
         self.ack()

@@ -193,10 +193,10 @@ class RabbitMqConsumerConfirm(ConsumerConfirm):
         self._body = body
 
     def ack(self):
-        self._channel.basic_ack(self._delivery.delivery_tag)
+        self._channel.basic_ack(delivery_tag=self._delivery.delivery_tag)
 
     def nack(self):
-        self._channel.basic_nack(self._delivery.delivery_tag)
+        self._channel.basic_nack(delivery_tag=self._delivery.delivery_tag, requeue=False)
 
     def retry(self, delay=60000, max_retries=3):
         # RabbitMq expiration should be str

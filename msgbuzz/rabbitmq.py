@@ -62,8 +62,6 @@ class RabbitMqMessageBus(MessageBus):
 
         _logger.info("Stopping consumers")
 
-        # sys.exit(0)
-
 
 class RabbitMqConsumer(multiprocessing.Process):
 

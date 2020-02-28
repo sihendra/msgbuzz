@@ -88,20 +88,30 @@ class RabbitMqConsumer(multiprocessing.Process):
         channel = conn.channel()
 
         q_names = self._name_generator
+        # create dlx exchange and queue
+        channel.exchange_declare(exchange=q_names.dlx_exchange(), durable=True)
+        channel.queue_declare(queue=q_names.dlx_queue_name(), durable=True)
+        channel.queue_bind(exchange=q_names.dlx_exchange(), queue=q_names.dlx_queue_name())
+
         # create exchange for pub/sub
-        channel.exchange_declare(exchange=q_names.exchange_name(), exchange_type='fanout')
+        channel.exchange_declare(exchange=q_names.exchange_name(), exchange_type='fanout', durable=True)
         # create dedicated queue for receiving message (create subscriber)
-        channel.queue_declare(queue=q_names.queue_name())
+        channel.queue_declare(queue=q_names.queue_name(),
+                              durable=True,
+                              arguments={'x-dead-letter-exchange': q_names.dlx_exchange(),
+                                         'x-dead-letter-routing-key': q_names.dlx_queue_name()})
         # bind created queue with pub/sub exchange
         channel.queue_bind(exchange=q_names.exchange_name(), queue=q_names.queue_name())
 
         # setup retry requeue exchange and binding
-        channel.exchange_declare(exchange=q_names.retry_exchange())
+        channel.exchange_declare(exchange=q_names.retry_exchange(), durable=True)
         channel.queue_bind(exchange=q_names.retry_exchange(), queue=q_names.queue_name())
         # create retry queue
-        channel.queue_declare(queue=q_names.retry_queue_name(), arguments={
-            "x-dead-letter-exchange": q_names.retry_exchange(),
-            "x-dead-letter-routing-key": q_names.queue_name()})
+        channel.queue_declare(queue=q_names.retry_queue_name(),
+                              durable=True,
+                              arguments={
+                                  "x-dead-letter-exchange": q_names.retry_exchange(),
+                                  "x-dead-letter-routing-key": q_names.queue_name()})
 
         # start consuming
         _logger.info(f"Waiting incoming message for topic: {q_names.exchange_name()}. To exit press Ctrl+C")
@@ -121,7 +131,7 @@ class RabbitMqConsumer(multiprocessing.Process):
 
             if self._message_expired(properties):
                 _logger.debug(f"Max retry reached dropping msg {properties}")
-                channel.basic_ack(method.delivery_tag)
+                channel.basic_nack(method.delivery_tag, requeue=False)
                 continue
 
             try:
@@ -156,6 +166,12 @@ class RabbitMqQueueNameGenerator:
 
     def retry_queue_name(self):
         return f"{self.queue_name()}__retry"
+
+    def dlx_exchange(self):
+        return self.dlx_queue_name()
+
+    def dlx_queue_name(self):
+        return f"{self.queue_name()}__failed"
 
 
 class RabbitMqConsumerConfirm(ConsumerConfirm):

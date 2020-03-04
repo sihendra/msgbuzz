@@ -14,15 +14,15 @@ _logger = logging.getLogger(__name__)
 
 class RabbitMqMessageBus(MessageBus):
 
-    def __init__(self, host='localhost'):
+    def __init__(self, host='localhost', port=5672):
         self._subscribers = {}
-        self._conn_params = pika.ConnectionParameters(host=host)
+        self._conn_params = pika.ConnectionParameters(host=host, port=port)
+
         self._conn = pika.BlockingConnection(self._conn_params)
         self._consumers = []
 
-    def publish(self, topic_name, body, headers=None):
+    def publish(self, topic_name, message: Message):
         channel = self._conn.channel()
-        message = Message(headers, body)
         msg_json = json.dumps(message.__dict__)
         channel.basic_publish(exchange=topic_name, routing_key='', body=msg_json,
                               properties=BasicProperties(content_type="application/json"))

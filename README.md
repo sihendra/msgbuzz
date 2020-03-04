@@ -14,13 +14,14 @@ Instantiate `msgbuzz.rabbitmq.RabbitMqMessageBus` to start publishing and consum
 Publish new message to `profile.new` topic
 
 ```python
+from msgbuzz import Message
 from msgbuzz.rabbitmq import RabbitMqMessageBus
 
 if __name__ == '__main__':
     msg_bus = RabbitMqMessageBus(host='localhost')
 
     for i in range(2):
-        msg_bus.publish('profile.new', f'Profile New {i + 1} !!')
+        msg_bus.publish('profile.new', Message({"header":"val1"}, f'Message {i + 1} !!'))
 
 
 ```

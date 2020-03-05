@@ -1,10 +1,10 @@
-import json
 import logging
 import multiprocessing
 import signal
 
 import pika
 from pika.channel import Channel
+from pika.exceptions import ConnectionClosed, StreamLostError
 from pika.spec import Basic, BasicProperties
 
 from msgbuzz import MessageBus, ConsumerConfirm
@@ -17,14 +17,15 @@ class RabbitMqMessageBus(MessageBus):
     def __init__(self, host='localhost', port=5672):
         self._subscribers = {}
         self._conn_params = pika.ConnectionParameters(host=host, port=port)
-
-        self._conn = pika.BlockingConnection(self._conn_params)
         self._consumers = []
+        self._conn = None
 
     def publish(self, topic_name, message: bytes):
-        channel = self._conn.channel()
-        channel.basic_publish(exchange=topic_name, routing_key='', body=message,
-                              properties=BasicProperties(content_type="application/json"))
+        try:
+            self._publish(topic_name, message)
+        except (ConnectionClosed, StreamLostError):
+            _logger.info("Connection closed: reconnecting to rabbitmq")
+            self._publish(topic_name, message)
 
     def on(self, topic_name, client_group, callback):
         self._subscribers[topic_name] = (client_group, callback)
@@ -53,6 +54,15 @@ class RabbitMqMessageBus(MessageBus):
 
         for consumer in self._consumers:
             consumer.join()
+
+    def _connect(self):
+        if not self._conn or self._conn.is_closed:
+            self._conn = pika.BlockingConnection(self._conn_params)
+
+    def _publish(self, topic_name, message):
+        self._connect()
+        channel = self._conn.channel()
+        channel.basic_publish(exchange=topic_name, routing_key='', body=message)
 
     def _signal_handler(self, sig, frame):
         _logger.info(f"You pressed Ctrl+C!")

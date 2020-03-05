@@ -7,7 +7,7 @@ import pika
 from pika.channel import Channel
 from pika.spec import Basic, BasicProperties
 
-from msgbuzz import MessageBus, ConsumerConfirm, Message
+from msgbuzz import MessageBus, ConsumerConfirm
 
 _logger = logging.getLogger(__name__)
 
@@ -21,10 +21,9 @@ class RabbitMqMessageBus(MessageBus):
         self._conn = pika.BlockingConnection(self._conn_params)
         self._consumers = []
 
-    def publish(self, topic_name, message: Message):
+    def publish(self, topic_name, message: bytes):
         channel = self._conn.channel()
-        msg_json = json.dumps(message.__dict__)
-        channel.basic_publish(exchange=topic_name, routing_key='', body=msg_json,
+        channel.basic_publish(exchange=topic_name, routing_key='', body=message,
                               properties=BasicProperties(content_type="application/json"))
 
     def on(self, topic_name, client_group, callback):
@@ -222,8 +221,6 @@ def _callback_wrapper(names_gen: RabbitMqQueueNameGenerator, callback):
     """
 
     def fn(ch, method, properties, body):
-        msg_dict = json.loads(body)
-        msg = Message(msg_dict.get("headers"), msg_dict.get("body"))
-        callback(RabbitMqConsumerConfirm(names_gen, ch, method, properties, body), msg)
+        callback(RabbitMqConsumerConfirm(names_gen, ch, method, properties, body), body)
 
     return fn

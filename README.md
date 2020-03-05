@@ -20,7 +20,7 @@ if __name__ == '__main__':
     msg_bus = RabbitMqMessageBus(host='localhost')
 
     for i in range(2):
-        msg_bus.publish('profile.new', f'Profile New {i + 1} !!')
+        msg_bus.publish('profile.new', f'Message {i + 1} !!'.encode())
 
 
 ```
@@ -37,11 +37,11 @@ Subscribe for `profile.new` topic and print the message.
 ```python
 import time
 
-from msgbuzz import ConsumerConfirm, Message
+from msgbuzz import ConsumerConfirm
 from msgbuzz.rabbitmq import RabbitMqMessageBus
 
-def print_message(op: ConsumerConfirm, message: Message):
-    print(f"{message.headers} {message.body}")
+def print_message(op: ConsumerConfirm, message: bytes):
+    print(f"{message}")
     time.sleep(2)
     op.ack()
 

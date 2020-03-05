@@ -22,17 +22,10 @@ class ConsumerConfirm:
         pass
 
 
-class Message(object):
-
-    def __init__(self, headers, body):
-        self.headers = headers
-        self.body = body
-
-
 class MessageBus:
 
     @abstractmethod
-    def publish(self, topic_name, message: Message):
+    def publish(self, topic_name, message: bytes):
         pass
 
     @abstractmethod

@@ -2,14 +2,15 @@ import logging
 import os
 import time
 
-from msgbuzz import ConsumerConfirm, Message
+from msgbuzz import ConsumerConfirm
 from msgbuzz.rabbitmq import RabbitMqMessageBus
 
-logging.basicConfig(format='%(asctime)s - %(process)d - %(levelname)s : %(message)s', level=os.getenv('LOG_LEVEL', 'INFO').upper())
+logging.basicConfig(format='%(asctime)s - %(process)d - %(levelname)s : %(message)s',
+                    level=os.getenv('LOG_LEVEL', 'INFO').upper())
 
 
-def print_message(op: ConsumerConfirm, message: Message):
-    logging.info(f"{message.headers} {message.body}")
+def print_message(op: ConsumerConfirm, message: bytes):
+    logging.info(message.decode("utf-8"))
     time.sleep(2)
     op.ack()
 

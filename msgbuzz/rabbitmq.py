@@ -4,7 +4,7 @@ import signal
 
 import pika
 from pika.channel import Channel
-from pika.exceptions import ConnectionClosed, StreamLostError
+from pika.exceptions import ConnectionClosed, StreamLostError, AMQPError
 from pika.spec import Basic, BasicProperties
 
 from msgbuzz import MessageBus, ConsumerConfirm
@@ -141,10 +141,7 @@ class RabbitMqConsumer(multiprocessing.Process):
                 channel.basic_nack(method.delivery_tag, requeue=False)
                 continue
 
-            try:
-                wrapped_callback(channel, method, properties, body)
-            except Exception:
-                _logger.exception("Exception when calling callback")
+            wrapped_callback(channel, method, properties, body)
 
         _logger.info(f"Consumer stopped")
 

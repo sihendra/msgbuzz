@@ -5,7 +5,7 @@ import time
 
 import pika
 from pika.channel import Channel
-from pika.exceptions import ConnectionClosed, StreamLostError
+from pika.exceptions import ConnectionClosed, StreamLostError, AMQPError
 from pika.spec import Basic, BasicProperties
 
 from msgbuzz import MessageBus, ConsumerConfirm
@@ -24,7 +24,7 @@ class RabbitMqMessageBus(MessageBus):
     def publish(self, topic_name, message: bytes):
         try:
             self._publish(topic_name, message)
-        except (ConnectionClosed, StreamLostError):
+        except AMQPError:
             _logger.info("Connection closed: reconnecting to rabbitmq")
             self._publish(topic_name, message)
 
@@ -59,6 +59,7 @@ class RabbitMqMessageBus(MessageBus):
         self._connect()
         channel = self._conn.channel()
         channel.basic_publish(exchange=topic_name, routing_key='', body=message)
+        channel.close()
 
 
 class RabbitMqConsumer(multiprocessing.Process):

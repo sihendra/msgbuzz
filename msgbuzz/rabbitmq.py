@@ -1,11 +1,10 @@
 import logging
 import multiprocessing
 import threading
-import time
 
 import pika
 from pika.channel import Channel
-from pika.exceptions import ConnectionClosed, StreamLostError, AMQPError
+from pika.exceptions import AMQPError
 from pika.spec import Basic, BasicProperties
 
 from msgbuzz import MessageBus, ConsumerConfirm
@@ -58,7 +57,14 @@ class RabbitMqMessageBus(MessageBus):
     def _publish(self, topic_name, message):
         self._connect()
         channel = self._conn.channel()
-        channel.basic_publish(exchange=topic_name, routing_key='', body=message)
+
+        # create exchange before publish
+        # we cannot publish to non existing exchange
+        q_names = RabbitMqQueueNameGenerator(topic_name, "")
+        exchange_name = q_names.exchange_name()
+        channel.exchange_declare(exchange=exchange_name, exchange_type='fanout', durable=True)
+
+        channel.basic_publish(exchange=exchange_name, routing_key='', body=message)
         channel.close()
 
 

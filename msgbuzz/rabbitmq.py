@@ -1,11 +1,10 @@
 import logging
 import multiprocessing
 import threading
-import time
 
 import pika
 from pika.channel import Channel
-from pika.exceptions import ConnectionClosed, StreamLostError, AMQPError
+from pika.exceptions import AMQPError
 from pika.spec import Basic, BasicProperties
 
 from msgbuzz import MessageBus, ConsumerConfirm
@@ -58,7 +57,14 @@ class RabbitMqMessageBus(MessageBus):
     def _publish(self, topic_name, message):
         self._connect()
         channel = self._conn.channel()
-        channel.basic_publish(exchange=topic_name, routing_key='', body=message)
+
+        # create exchange before publish
+        # we cannot publish to non existing exchange
+        q_names = RabbitMqQueueNameGenerator(topic_name, "")
+        exchange_name = q_names.exchange_name()
+        channel.exchange_declare(exchange=exchange_name, exchange_type='fanout', durable=True)
+
+        channel.basic_publish(exchange=exchange_name, routing_key='', body=message)
         channel.close()
 
 
@@ -194,18 +200,20 @@ class RabbitMqConsumerConfirm(ConsumerConfirm):
         self._conn.add_callback_threadsafe(cb)
 
     def retry(self, delay=60000, max_retries=3):
-        # RabbitMq expiration should be str
-        self._properties.expiration = str(delay)
+        def cb():
+            # publish to retry queue
+            self._properties.expiration = str(delay)
+            if self._properties.headers is None:
+                self._properties.headers = {}
+            self._properties.headers['x-max-retries'] = max_retries
 
-        if self._properties.headers is None:
-            self._properties.headers = {}
-        self._properties.headers['x-max-retries'] = max_retries
+            q_names = self.names_gen
+            self._channel.basic_publish("", q_names.retry_queue_name(), self._body, properties=self._properties)
 
-        q_names = self.names_gen
-        _logger.info(f"About to retry body:{self._body} props: {self._properties}")
-        self._channel.basic_publish("", q_names.retry_queue_name(), self._body, properties=self._properties)
+            # ack
+            self._channel.basic_ack(delivery_tag=self._delivery.delivery_tag)
 
-        self.ack()
+        self._conn.add_callback_threadsafe(cb)
 
 
 def _callback_wrapper(conn, names_gen: RabbitMqQueueNameGenerator, callback, threads):
@@ -221,7 +229,6 @@ def _callback_wrapper(conn, names_gen: RabbitMqQueueNameGenerator, callback, thr
             return
 
         if RabbitMqConsumer.message_expired(properties):
-            _logger.debug(f"Max retry reached dropping msg {properties}")
             ch.basic_nack(method.delivery_tag, requeue=False)
             return
 

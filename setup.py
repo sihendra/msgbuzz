@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="msgbuzz",
-    version="0.1.1",
+    version="0.1.2",
     author='Hendra Setiawan',
     author_email='sihendra@gmail.com',
     description='Generic message bus abstraction. Supported implementation: RabbitMQ through Pika',

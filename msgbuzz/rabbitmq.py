@@ -14,11 +14,26 @@ _logger = logging.getLogger(__name__)
 
 class RabbitMqMessageBus(MessageBus):
 
-    def __init__(self, host='localhost', port=5672):
+    def __init__(self, host='localhost', port=5672, **kwargs):
+        self.host = host
+        self.port = port
+        self.kwargs = kwargs
         self._subscribers = {}
-        self._conn_params = pika.ConnectionParameters(host=host, port=port)
         self._consumers = []
         self._conn = None
+        self.__credentials = None
+
+    @property
+    def _conn_params(self):
+        return pika.ConnectionParameters(self.host, self.port, credentials=self._credentials, **self.kwargs)
+
+    @property
+    def _credentials(self):
+        if not self.__credentials:
+            username = self.kwargs.pop("username", "guest")
+            password = self.kwargs.pop("password", "guest")
+            self.__credentials = pika.PlainCredentials(username, password)
+        return self.__credentials
 
     def publish(self, topic_name, message: bytes):
         try:

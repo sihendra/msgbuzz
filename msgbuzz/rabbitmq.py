@@ -1,6 +1,7 @@
 import logging
 import multiprocessing
 import threading
+import time
 
 import pika
 from pika.channel import Channel
@@ -85,43 +86,64 @@ class RabbitMqMessageBus(MessageBus):
 
 class RabbitMqConsumer(multiprocessing.Process):
 
-    def __init__(self, conn_params, topic_name, client_group, callback):
+    def __init__(self, conn_params, topic_name, client_group, callback, retry_after=5):
+        """
+
+        :param conn_params: the connection parameters
+        :param topic_name: the topic (exchange) name
+        :param client_group: the client group of this topic_name
+        :param callback: the function that will be called on incoming message
+        :param retry_after: number of seconds to start reconnecting when connection error occurred
+        """
         super().__init__()
         self._conn_params = conn_params
         self._topic_name = topic_name
         self._client_group = client_group
         self._name_generator = RabbitMqQueueNameGenerator(topic_name, client_group)
         self._callback = callback
+        self._retry_after = retry_after
 
     def run(self):
-        # create new conn
-        conn = pika.BlockingConnection(self._conn_params)
+        while True:
+            threads = []
+            conn = None
+            channel = None
+            try:
+                # create new conn
+                conn = pika.BlockingConnection(self._conn_params)
 
-        # create channel
-        channel = conn.channel()
-        self.register_queues(channel)
-        channel.basic_qos(prefetch_count=1)
+                # create channel
+                channel = conn.channel()
+                self.register_queues(channel)
+                channel.basic_qos(prefetch_count=1)
 
-        # start consuming
-        threads = []
-        wrapped_callback = _callback_wrapper(conn, self._name_generator, self._callback, threads)
-        channel.basic_consume(queue=self._name_generator.queue_name(), auto_ack=False,
-                              on_message_callback=wrapped_callback)
+                # start consuming
+                wrapped_callback = _callback_wrapper(conn, self._name_generator, self._callback, threads)
+                channel.basic_consume(queue=self._name_generator.queue_name(), auto_ack=False,
+                                      on_message_callback=wrapped_callback)
 
-        _logger.info(
-            f"Waiting incoming message for topic: {self._name_generator.exchange_name()}. To exit press Ctrl+C")
-        try:
-            channel.start_consuming()
-        except KeyboardInterrupt:
-            channel.stop_consuming()
+                _logger.info(
+                    f"Waiting incoming message for topic: {self._name_generator.exchange_name()}. To exit press Ctrl+C")
 
-        # Wait for all to complete
-        for thread in threads:
-            thread.join()
+                channel.start_consuming()
+            except KeyboardInterrupt:
+                channel.stop_consuming()
+                break
+            # Recover on all other connection errors
+            except pika.exceptions.AMQPConnectionError as e:
+                _logger.warning("AMQPConnectionError error, will be retried")
+                time.sleep(self._retry_after)
+                continue
+            finally:
+                # Wait for all to complete
+                for thread in threads:
+                    thread.join()
 
-        conn.close()
+                if channel and channel.is_open:
+                    channel.close()
 
-        _logger.info(f"Consumer stopped")
+                if conn and conn.is_open:
+                    conn.close()
 
     def register_queues(self, channel):
         q_names = self._name_generator
